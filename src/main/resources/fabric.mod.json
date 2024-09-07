@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "feature-creatures",
+	"version": "${version}",
+	"name": "Feature Creatures",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/feature-creatures/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"mod.crontent.FeatureCreatures"
+		],
+		"client": [
+			"mod.crontent.FeatureCreaturesClient"
+		],
+		"fabric-datagen": [
+			"mod.crontent.FeatureCreaturesDataGenerator"
+		]
+	},
+	"mixins": [
+		"feature-creatures.mixins.json",
+		{
+			"config": "feature-creatures.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.4",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
