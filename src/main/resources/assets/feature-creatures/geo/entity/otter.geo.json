@@ -415,6 +415,12 @@
 					]
 				},
 				{
+					"name": "head_item",
+					"parent": "head",
+					"pivot": [0, 6.25, -13.25],
+					"rotation": [-90, -22.5, 90]
+				},
+				{
 					"name": "front_leg_left",
 					"parent": "chest",
 					"pivot": [2, 4.75, -4.5],
