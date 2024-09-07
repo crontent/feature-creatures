@@ -36,6 +36,7 @@
 		"fabricloader": ">=0.16.4",
 		"minecraft": "~1.21.1",
 		"java": ">=21",
+		"geckolib": ">=4.6.3 ",
 		"fabric-api": "*"
 	},
 	"suggests": {
