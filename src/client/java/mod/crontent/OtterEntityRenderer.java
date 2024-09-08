@@ -15,20 +15,25 @@ import java.util.Objects;
 public class OtterEntityRenderer extends GeoEntityRenderer<OtterEntity> {
 
     public OtterEntityRenderer(EntityRendererFactory.Context renderManager) {
+
         super(renderManager, new OtterEntityModel());
-        addRenderLayer(new BlockAndItemGeoLayer<>(this){
+
+        addRenderLayer(new BlockAndItemGeoLayer<>(this)
+        {
             @Override
             protected @Nullable ItemStack getStackForBone(GeoBone bone, OtterEntity otter) {
                 return Objects.equals(bone.getName(), "head_item") ? otter.getEquippedStack(EquipmentSlot.MAINHAND) : null;
             }
 
+
+            //TODO: This is shit
             @Override
             protected void renderStackForBone(MatrixStack poseStack, GeoBone bone, ItemStack stack, OtterEntity animatable, VertexConsumerProvider bufferSource, float partialTick, int packedLight, int packedOverlay) {
                 //Quaternionf rotationX = new Quaternionf(new AxisAngle4f((float) Math.toRadians(90), 1, 0, 0));
                 //Quaternionf rotationY = new Quaternionf(new AxisAngle4f((float) Math.toRadians(90), 0, 0, 1));
-//
+
                 //rotationX.mul(rotationY);
-//
+
                 //poseStack.multiply(rotationX);
                 //poseStack.translate(0, 0, 2);
                 poseStack.scale(.3f, .3f, .3f);
