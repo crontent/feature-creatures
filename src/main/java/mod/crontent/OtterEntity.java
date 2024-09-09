@@ -1,57 +1,129 @@
 package mod.crontent;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import mod.crontent.behaviours.SetWalkTargetToItem;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.ai.brain.Brain;
 import net.minecraft.entity.ai.control.MoveControl;
-import net.minecraft.entity.ai.goal.*;
 import net.minecraft.entity.ai.pathing.AmphibiousSwimNavigation;
 import net.minecraft.entity.ai.pathing.EntityNavigation;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.entity.passive.IronGolemEntity;
 import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.entity.passive.WolfEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.predicate.entity.EntityPredicates;
-import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.World;
+import net.tslat.smartbrainlib.api.SmartBrainOwner;
+import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
+import net.tslat.smartbrainlib.api.core.SmartBrainProvider;
+import net.tslat.smartbrainlib.api.core.behaviour.FirstApplicableBehaviour;
+import net.tslat.smartbrainlib.api.core.behaviour.OneRandomBehaviour;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeAttack;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetWalkTargetToAttackTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.target.InvalidateAttackTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.target.SetPlayerLookTarget;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.target.SetRandomLookTarget;
+import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
+import net.tslat.smartbrainlib.api.core.sensor.custom.NearbyItemsSensor;
+import net.tslat.smartbrainlib.api.core.sensor.vanilla.HurtBySensor;
+import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animation.*;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.function.Predicate;
 
-public class OtterEntity extends AnimalEntity implements GeoEntity {
+public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOwner<OtterEntity>  {
     protected static final RawAnimation WALK_ANIM = RawAnimation.begin().thenLoop("walk_cycle");
-
-    //private static final TrackedData<Optional<UUID>> TRUSTED =
-            //DataTracker.registerData(OtterEntity.class, TrackedDataHandlerRegistry.OPTIONAL_UUID);
-
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
     static final Predicate<ItemEntity> PICKABLE_ITEMS_FILTER = item -> !item.cannotPickup() && item.isAlive();
-    //TODO: create own tag.
     static final Predicate<ItemStack> FOOD_ITEM_FILTER = item -> item.isIn(ItemTags.FOX_FOOD);
-    private boolean eatBound;
 
     public OtterEntity(EntityType<? extends OtterEntity> entityType, World world) {
         super(entityType, world);
         this.moveControl = new OtterMoveControl(this);
         this.setCanPickUpLoot(true);
+    }
+
+    //BOILERPLATE
+    @Override
+    protected Brain.Profile<?> createBrainProfile() {
+        return new SmartBrainProvider<>(this);
+    }
+
+    //BOILERPLATE
+    @Override
+    protected void mobTick() {
+        tickBrain(this);
+    }
+
+    @Override
+    public List<? extends ExtendedSensor<? extends OtterEntity>> getSensors() {
+        return ObjectArrayList.of(
+                new NearbyLivingEntitySensor<OtterEntity>()
+                        .setPredicate((target, entity) ->
+                                target instanceof PlayerEntity ||
+                                        target instanceof IronGolemEntity ||
+                                        target instanceof WolfEntity),
+                new NearbyItemsSensor<OtterEntity>()
+                        .setRadius(7d),
+                new HurtBySensor<>()
+        );
+    }
+
+    @Override
+    public BrainActivityGroup<OtterEntity> getCoreTasks() {
+        return BrainActivityGroup.coreTasks(
+                new AvoidEntity<>().avoiding(entity -> entity instanceof PlayerEntity),
+                new LookAtTarget<>().runFor(entity -> entity.getRandom().nextBetween(40,300)),
+                new MoveToWalkTarget<>());
+    }
+
+    @Override
+    public BrainActivityGroup<OtterEntity> getIdleTasks() {
+        return BrainActivityGroup.idleTasks(
+                new FirstApplicableBehaviour<OtterEntity>(
+                        //new TargetOrRetaliate<>(),
+                        new SetPlayerLookTarget<>(),
+                        new SetRandomLookTarget<>()
+                ),
+                new SetWalkTargetToItem<>(),
+                new OneRandomBehaviour<>(
+                        new SetRandomWalkTarget<>(),
+                        new Idle<>().runFor(e -> e.getRandom().nextInt(60))
+                )
+        );
+    }
+
+    @Override
+    public BrainActivityGroup<OtterEntity> getFightTasks() {
+        // These are the tasks that handle fighting
+        return BrainActivityGroup.fightTasks(
+                new InvalidateAttackTarget<>(), // Cancel fighting if the target is no longer valid
+                new SetWalkTargetToAttackTarget<>(),      // Set the walk target to the attack target
+                new AnimatableMeleeAttack<>(0)); // Melee attack the target if close enough
     }
 
     public static DefaultAttributeContainer.Builder createOtterAttributes(){
@@ -64,17 +136,7 @@ public class OtterEntity extends AnimalEntity implements GeoEntity {
 
     @Override
     protected void initGoals() {
-        this.goalSelector.add(0, new SwimGoal(this));
-        this.goalSelector.add(1, new FleeEntityGoal<>(this,
-                PlayerEntity.class,
-                10.0F,
-                1.6,
-                1.4,
-                EntityPredicates.EXCEPT_CREATIVE_OR_SPECTATOR::test));
-        this.goalSelector.add(2, new FindSpaceAndEatGoal(this));
-        this.goalSelector.add(5, new WanderAroundGoal(this, 0.8D));
-        this.goalSelector.add(7, new LookAtEntityGoal(this, PlayerEntity.class, 5.0F));
-        this.goalSelector.add(9, new PickupItemGoal());
+        //MAKE SURE THIS IS UNSET
     }
 
     @Override
@@ -115,18 +177,7 @@ public class OtterEntity extends AnimalEntity implements GeoEntity {
         return null;
     }
 
-    boolean wantsToPickupItem() {
-        //TODO: check for states such as already moving towards an item, or searching
-        return true;
-    }
 
-    public void setEatBound(boolean eatBound) {
-        this.eatBound = eatBound;
-    }
-
-    public boolean isEatBound() {
-        return eatBound;
-    }
 
     static class OtterMoveControl extends MoveControl{
         private final OtterEntity otter;
@@ -158,130 +209,4 @@ public class OtterEntity extends AnimalEntity implements GeoEntity {
         }
     }
 
-    class PickupItemGoal extends Goal {
-        public PickupItemGoal() {
-            this.setControls(EnumSet.of(Control.MOVE));
-        }
-
-        @Override
-        public boolean canStart() {
-            OtterEntity otter = OtterEntity.this;
-            if (!otter.getEquippedStack(EquipmentSlot.MAINHAND).isEmpty()){
-                return false;
-            } else if (otter.getTarget() != null || otter.getAttacker() != null){
-                return false;
-            } else if (!otter.wantsToPickupItem()){
-                return false;
-            } else if (otter.getRandom().nextInt(toGoalTicks(10)) != 0 ){
-                return false;
-            } else{
-                List<ItemEntity> itemsClose = getCloseItemEntities(otter);
-                return !itemsClose.isEmpty() && otter.getEquippedStack(EquipmentSlot.MAINHAND).isEmpty();
-            }
-        }
-
-        @Override
-        public void tick() {
-            OtterEntity otter = OtterEntity.this;
-            List<ItemEntity> itemsClose = getCloseItemEntities(otter);
-            ItemStack equippedStack = otter.getEquippedStack(EquipmentSlot.MAINHAND);
-            if(equippedStack.isEmpty() && !itemsClose.isEmpty()){
-                otter.getNavigation().startMovingTo(itemsClose.getFirst(), 1.2f);
-            }
-        }
-
-        private static List<ItemEntity> getCloseItemEntities(OtterEntity otter) {
-            return otter.getWorld()
-                    .getEntitiesByClass(ItemEntity.class,
-                            otter.getBoundingBox().expand(8d, 8d, 8d),
-                            OtterEntity.PICKABLE_ITEMS_FILTER);
-        }
-
-        @Override
-        public void start() {
-            OtterEntity otter = OtterEntity.this;
-            List<ItemEntity> itemsClose = getCloseItemEntities(otter);
-            if(!itemsClose.isEmpty()){
-                otter.getNavigation().startMovingTo(itemsClose.getFirst(), 1.2f);
-            }
-        }
-    }
-
-    private class FindSpaceAndEatGoal extends Goal {
-        private BlockPos targetPos;
-        private int eatTimer;
-        private OtterEntity otter;
-        private boolean noPath;
-        private int reachFoodLocationTryTicks;
-
-        public FindSpaceAndEatGoal(OtterEntity otter) {
-            this.otter = otter;
-            this.setControls(EnumSet.of(Control.MOVE, Control.LOOK));
-        }
-
-        @Override
-        public boolean canStart() {
-            ItemStack heldItem = otter.getEquippedStack(EquipmentSlot.MAINHAND);
-            if (heldItem.isEmpty() ){ //|| !isNextToWater(otter.getBlockPos())) {
-                return false;
-            } else if (otter.getRandom().nextInt(1) != 0){
-                this.targetPos = findNearbyWaterBlock();
-                return this.targetPos != null;
-            } else return false;
-        }
-
-
-        @Override
-        public void start() {
-            otter.setEatBound(true);
-            this.noPath = false;
-            this.reachFoodLocationTryTicks = 0;
-        }
-
-        @Override
-        public void stop() {
-            otter.setEatBound(false);
-        }
-
-        @Override
-        public boolean shouldContinue() {
-            return this.targetPos.isWithinDistance(otter.getPos(), 2d) &&
-                    !this.noPath
-                    && this.reachFoodLocationTryTicks < this.getTickCount(600);
-        }
-
-        @Override
-        public void tick() {
-            if (otter.getBlockPos().isWithinDistance(targetPos, 1f)){
-                this.eatTimer++;
-                if (this.eatTimer >= 40) {
-                    otter.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
-                    otter.playSound(SoundEvents.ENTITY_GENERIC_EAT, 1f, 1f);
-                }
-            }
-        }
-
-        private BlockPos findNearbyWaterBlock() {
-            BlockPos pos = otter.getBlockPos();
-            for(BlockPos offset : BlockPos.iterate(pos.add(-3,-1,3), pos.add(3,1,3))) {
-                if(isNextToWater(offset)) {
-                    FeatureCreatures.LOGGER.warn("Found block to eat at {}", offset);
-                    return offset;
-                }
-            }
-            return null;
-        }
-
-        private boolean isNextToWater(BlockPos pos) {
-            return OtterEntity.this.getWorld().getBlockState(pos.north()).getFluidState().isIn(FluidTags.WATER)
-                    || OtterEntity.this.getWorld().getBlockState(pos.south()).getFluidState().isIn(FluidTags.WATER)
-                    || OtterEntity.this.getWorld().getBlockState(pos.east()).getFluidState().isIn(FluidTags.WATER)
-                    || OtterEntity.this.getWorld().getBlockState(pos.west()).getFluidState().isIn(FluidTags.WATER);
-        }
-
-        @Override
-        public boolean canStop() {
-            return false;
-        }
-    }
 }
