@@ -1,5 +1,7 @@
 package mod.crontent;
 
+import mod.crontent.ai.memories.ModMemoryModuleTypes;
+import mod.crontent.ai.sensors.ModSensors;
 import net.fabricmc.api.ModInitializer;
 
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -14,6 +16,8 @@ public class FeatureCreatures implements ModInitializer {
 	public void onInitialize() {
 
 		ModEntities.initialize();
+		ModSensors.init();
+		ModMemoryModuleTypes.init();
 
 		FabricDefaultAttributeRegistry.register(ModEntities.OTTER, OtterEntity.createOtterAttributes());
 	}

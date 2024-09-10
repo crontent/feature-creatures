@@ -1,4 +1,4 @@
-package mod.crontent.behaviours;
+package mod.crontent.ai.behaviours;
 
 import com.mojang.datafixers.util.Pair;
 import net.minecraft.entity.ItemEntity;
@@ -13,6 +13,7 @@ import net.tslat.smartbrainlib.util.BrainUtils;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 
 public class SetWalkTargetToItem<E extends LivingEntity> extends ExtendedBehaviour<E> {
 
@@ -25,6 +26,7 @@ public class SetWalkTargetToItem<E extends LivingEntity> extends ExtendedBehavio
     protected BiFunction<E, ItemEntity, Integer> closeEnoughDist = (entity, pos) -> 0;
 
     protected ItemEntity target = null;
+    private Consumer<E> successCallback = entity -> {};
 
     /**
      * Set the predicate to determine whether a given position/state should be the target path
@@ -75,6 +77,11 @@ public class SetWalkTargetToItem<E extends LivingEntity> extends ExtendedBehavio
     }
 
     @Override
+    protected boolean shouldKeepRunning(E entity) {
+        return true;
+    }
+
+    @Override
     protected void start(E entity) {
         BrainUtils.setMemory(entity, MemoryModuleType.WALK_TARGET, new WalkTarget(this.target.getBlockPos(), this.speedMod.apply(entity, this.target), this.closeEnoughDist.apply(entity, this.target)));
         BrainUtils.setMemory(entity, MemoryModuleType.LOOK_TARGET, new EntityLookTarget(this.target, true));
@@ -83,5 +90,18 @@ public class SetWalkTargetToItem<E extends LivingEntity> extends ExtendedBehavio
     @Override
     protected void stop(E entity) {
         this.target = null;
+    }
+
+    @Override
+    protected void tick(E entity) {
+        if(this.target != null && entity.getBlockPos().getSquaredDistance(this.target.getBlockPos()) <= 1) {
+            this.successCallback.accept(entity);
+            this.stop(entity);
+        }
+    }
+
+    public final ExtendedBehaviour<E> whenSuccessful(Consumer<E> callback) {
+        this.successCallback = callback;
+        return this;
     }
 }

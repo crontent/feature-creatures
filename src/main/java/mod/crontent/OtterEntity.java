@@ -1,10 +1,9 @@
 package mod.crontent;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import mod.crontent.behaviours.SetWalkTargetToItem;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.ItemEntity;
+import mod.crontent.ai.behaviours.SetWalkTargetToItem;
+import mod.crontent.ai.sensors.NearbyOtterEatSpotSensor;
+import net.minecraft.entity.*;
 import net.minecraft.entity.ai.brain.Brain;
 import net.minecraft.entity.ai.control.MoveControl;
 import net.minecraft.entity.ai.pathing.AmphibiousSwimNavigation;
@@ -24,6 +23,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LocalDifficulty;
+import net.minecraft.world.ServerWorldAccess;
 import net.minecraft.world.World;
 import net.tslat.smartbrainlib.api.SmartBrainOwner;
 import net.tslat.smartbrainlib.api.core.BrainActivityGroup;
@@ -33,6 +33,7 @@ import net.tslat.smartbrainlib.api.core.behaviour.OneRandomBehaviour;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeAttack;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
@@ -47,10 +48,12 @@ import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.animation.AnimationState;
 import software.bernie.geckolib.animation.*;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
 import java.util.List;
+import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
 public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOwner<OtterEntity>  {
@@ -58,8 +61,9 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    static final Predicate<ItemEntity> PICKABLE_ITEMS_FILTER = item -> !item.cannotPickup() && item.isAlive();
-    static final Predicate<ItemStack> FOOD_ITEM_FILTER = item -> item.isIn(ItemTags.FOX_FOOD);
+    static final BiPredicate<ItemEntity, OtterEntity> PICKABLE_ITEMS_FILTER = (item, entity) -> entity.canGather(item.getStack()) && entity.canSee(item);
+    static final Predicate<ItemStack> FOOD_ITEM_FILTER = item -> item.isIn(ItemTags.FISHES);
+    static final Predicate<ItemStack> PRIORITY_ITEM_FILTER = item -> item.isOf(Items.GRAVEL);
 
     public OtterEntity(EntityType<? extends OtterEntity> entityType, World world) {
         super(entityType, world);
@@ -88,9 +92,26 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                                         target instanceof IronGolemEntity ||
                                         target instanceof WolfEntity),
                 new NearbyItemsSensor<OtterEntity>()
-                        .setRadius(7d),
-                new HurtBySensor<>()
+                        .setRadius(5d)
+                        .setPredicate((target, entity) -> {
+                            if (PICKABLE_ITEMS_FILTER.test(target, entity)) {
+                                ItemStack currentStack = this.getEquippedStack(EquipmentSlot.MAINHAND);
+                                int priority_current = getPickupPriority(currentStack);
+                                int priority_prospective_pickup = getPickupPriority(target.getStack());
+                                return priority_prospective_pickup > priority_current;
+                            }
+                            return false;
+                        }),
+                new HurtBySensor<>(),
+                new NearbyOtterEatSpotSensor<>()
         );
+    }
+
+    private int getPickupPriority(ItemStack stack) {
+        int prio = stack.isEmpty() ? 0 : 1;
+        if(PRIORITY_ITEM_FILTER.test(stack)) prio = 3;
+        else if (FOOD_ITEM_FILTER.test(stack)) prio = 2;
+        return prio;
     }
 
     @Override
@@ -105,14 +126,27 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
     public BrainActivityGroup<OtterEntity> getIdleTasks() {
         return BrainActivityGroup.idleTasks(
                 new FirstApplicableBehaviour<OtterEntity>(
-                        //new TargetOrRetaliate<>(),
                         new SetPlayerLookTarget<>(),
                         new SetRandomLookTarget<>()
                 ),
-                new SetWalkTargetToItem<>(),
-                new OneRandomBehaviour<>(
-                        new SetRandomWalkTarget<>(),
-                        new Idle<>().runFor(e -> e.getRandom().nextInt(60))
+                //Always Panic if applicable
+                new FirstApplicableBehaviour<OtterEntity>(
+                        new Panic<>(),
+                        new SetWalkTargetToItem<>()
+                                .whenSuccessful(livingEntity -> {
+                                    if (getPickupPriority(livingEntity.getEquippedStack(EquipmentSlot.MAINHAND)) != 0) {
+                                        System.out.println("We are dropping prev item");
+                                        ItemStack item = livingEntity.getEquippedStack(EquipmentSlot.MAINHAND);
+                                        livingEntity.dropStack(item).setToDefaultPickupDelay();
+                                        livingEntity.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+                                    }
+                                })
+                                .cooldownFor(livingEntity -> 40),
+                        //Idling if nothing else is happening
+                        new OneRandomBehaviour<>(
+                                new SetRandomWalkTarget<>(),
+                                new Idle<>().runFor(e -> e.getRandom().nextBetween(30, 60))
+                        )
                 )
         );
     }
@@ -141,7 +175,14 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
 
     @Override
     protected void initEquipment(Random random, LocalDifficulty localDifficulty) {
-        this.equipStack(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND));
+        this.equipStack(EquipmentSlot.MAINHAND, Items.DIAMOND.getDefaultStack());
+    }
+
+
+    @Override
+    public EntityData initialize(ServerWorldAccess world, LocalDifficulty difficulty, SpawnReason spawnReason, @Nullable EntityData entityData) {
+        this.initEquipment(random, difficulty);
+        return super.initialize(world, difficulty, spawnReason, entityData);
     }
 
     @Override
