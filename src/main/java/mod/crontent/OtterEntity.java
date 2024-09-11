@@ -141,7 +141,8 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                                         livingEntity.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
                                     }
                                 })
-                                .cooldownFor(livingEntity -> 40),
+                                .cooldownFor(e -> 40)
+                                .runFor(e -> e.getRandom().nextBetween(30, 60)),
                         //Idling if nothing else is happening
                         new OneRandomBehaviour<>(
                                 new SetRandomWalkTarget<>(),
