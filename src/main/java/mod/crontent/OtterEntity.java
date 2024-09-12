@@ -20,7 +20,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LocalDifficulty;
 import net.minecraft.world.ServerWorldAccess;
@@ -229,14 +228,6 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
             this.otter = otter;
         }
 
-        private void updateVelocity(){
-
-        }
-
-        @Override
-        public void tick() {
-            super.tick();
-        }
     }
 
     static class OtterSwimNavigation extends AmphibiousSwimNavigation {
@@ -245,10 +236,7 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
             super(owner, world);
         }
 
-        @Override
-        public boolean isValidPosition(BlockPos pos) {
-            return super.isValidPosition(pos);
-        }
+
     }
 
 }
