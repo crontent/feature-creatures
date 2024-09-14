@@ -1,7 +1,12 @@
 package mod.crontent;
 
+import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import mod.crontent.ai.behaviours.OtterEat;
+import mod.crontent.ai.behaviours.SetWalkTargetToEatSpot;
 import mod.crontent.ai.behaviours.SetWalkTargetToItem;
+import mod.crontent.ai.memories.ModMemoryModuleTypes;
+import mod.crontent.ai.sensors.HasFoodInSlotSensor;
 import mod.crontent.ai.sensors.NearbyOtterEatSpotSensor;
 import net.minecraft.entity.*;
 import net.minecraft.entity.ai.brain.Brain;
@@ -33,7 +38,7 @@ import net.tslat.smartbrainlib.api.core.behaviour.custom.attack.AnimatableMeleeA
 import net.tslat.smartbrainlib.api.core.behaviour.custom.look.LookAtTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Idle;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.misc.Panic;
-import net.tslat.smartbrainlib.api.core.behaviour.custom.move.AvoidEntity;
+import net.tslat.smartbrainlib.api.core.behaviour.custom.move.FloatToSurfaceOfFluid;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.move.MoveToWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetRandomWalkTarget;
 import net.tslat.smartbrainlib.api.core.behaviour.custom.path.SetWalkTargetToAttackTarget;
@@ -44,6 +49,7 @@ import net.tslat.smartbrainlib.api.core.sensor.ExtendedSensor;
 import net.tslat.smartbrainlib.api.core.sensor.custom.NearbyItemsSensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.HurtBySensor;
 import net.tslat.smartbrainlib.api.core.sensor.vanilla.NearbyLivingEntitySensor;
+import net.tslat.smartbrainlib.util.BrainUtils;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
@@ -82,6 +88,8 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
         tickBrain(this);
     }
 
+
+
     @Override
     public List<? extends ExtendedSensor<? extends OtterEntity>> getSensors() {
         return ObjectArrayList.of(
@@ -102,7 +110,8 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                             return false;
                         }),
                 new HurtBySensor<>(),
-                new NearbyOtterEatSpotSensor<>()
+                new NearbyOtterEatSpotSensor<>(),
+                new HasFoodInSlotSensor<>()
         );
     }
 
@@ -116,9 +125,14 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
     @Override
     public BrainActivityGroup<OtterEntity> getCoreTasks() {
         return BrainActivityGroup.coreTasks(
-                new AvoidEntity<>().avoiding(entity -> entity instanceof PlayerEntity),
+                //new AvoidEntity<>().avoiding(entity -> entity instanceof PlayerEntity),
                 new LookAtTarget<>().runFor(entity -> entity.getRandom().nextBetween(40,300)),
-                new MoveToWalkTarget<>());
+                new MoveToWalkTarget<>(),
+                new FloatToSurfaceOfFluid<>()
+                        .riseChance(.2f)
+                        .startCondition(mobEntity -> mobEntity.getAir() <= 100)
+                        .runFor(e -> e.getRandom().nextBetween(80, 200)));
+
     }
 
     @Override
@@ -131,6 +145,8 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                 //Always Panic if applicable
                 new FirstApplicableBehaviour<OtterEntity>(
                         new Panic<>(),
+                        new OtterEat<>()
+                                .whenStopping(livingEntity -> BrainUtils.setMemory(livingEntity, ModMemoryModuleTypes.SHOULD_EAT, Boolean.FALSE)),
                         new SetWalkTargetToItem<>()
                                 .whenSuccessful(livingEntity -> {
                                     if (getPickupPriority(livingEntity.getEquippedStack(EquipmentSlot.MAINHAND)) != 0) {
@@ -142,10 +158,19 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                                 })
                                 .cooldownFor(e -> 40)
                                 .runFor(e -> e.getRandom().nextBetween(30, 60)),
+
+                        new SetWalkTargetToEatSpot<>()
+                                .whenSuccessful(livingEntity -> BrainUtils.setMemory(livingEntity, ModMemoryModuleTypes.SHOULD_EAT, Boolean.TRUE))
+                                .startCondition(livingEntity -> Boolean.TRUE.equals(BrainUtils.getMemory(livingEntity, ModMemoryModuleTypes.HAS_FOOD))),
+
                         //Idling if nothing else is happening
                         new OneRandomBehaviour<>(
-                                new SetRandomWalkTarget<>(),
-                                new Idle<>().runFor(e -> e.getRandom().nextBetween(30, 60))
+                                Pair.of(
+                                        new SetRandomWalkTarget<>(),
+                                        1),
+                                Pair.of(
+                                        new Idle<OtterEntity>().runFor(e -> e.getRandom().nextBetween(30, 60)),
+                                        5)
                         )
                 )
         );
@@ -175,7 +200,7 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
 
     @Override
     protected void initEquipment(Random random, LocalDifficulty localDifficulty) {
-        this.equipStack(EquipmentSlot.MAINHAND, Items.DIAMOND.getDefaultStack());
+        //this.equipStack(EquipmentSlot.MAINHAND, Items.DIAMOND.getDefaultStack());
     }
 
 

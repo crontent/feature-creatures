@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 
 public class ModSensors{
 
+    public static final SensorType<? extends ExtendedSensor<?>> HAS_FOOD_IN_SLOT = register("has_food_in_slot_sensor", HasFoodInSlotSensor::new);
     public static SensorType<NearbyOtterEatSpotSensor<?>> NEARBY_OTTER_EAT_SPOT = register("nearby_otter_eat_spot_sensor", NearbyOtterEatSpotSensor::new);
 
     private static <T extends ExtendedSensor<?>> SensorType<T> register(String id, Supplier<T> sensor) {
