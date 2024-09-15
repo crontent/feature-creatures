@@ -107,7 +107,7 @@ public class SetWalkTargetToEatSpot<E extends LivingEntity> extends ExtendedBeha
 
     @Override
     protected void tick(E entity) {
-        if(this.target != null && entity.getBlockPos().getSquaredDistance(this.target) <= 1) {
+        if(this.target != null && entity.getBlockPos().getSquaredDistance(this.target) <= 2) {
             this.successCallback.accept(entity);
             this.stop(entity);
         }

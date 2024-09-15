@@ -145,23 +145,21 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
                 //Always Panic if applicable
                 new FirstApplicableBehaviour<OtterEntity>(
                         new Panic<>(),
-                        new OtterEat<>()
-                                .whenStopping(livingEntity -> BrainUtils.setMemory(livingEntity, ModMemoryModuleTypes.SHOULD_EAT, Boolean.FALSE)),
+                        new OtterEat<>(30),
                         new SetWalkTargetToItem<>()
                                 .whenSuccessful(livingEntity -> {
                                     if (getPickupPriority(livingEntity.getEquippedStack(EquipmentSlot.MAINHAND)) != 0) {
-                                        System.out.println("We are dropping prev item");
                                         ItemStack item = livingEntity.getEquippedStack(EquipmentSlot.MAINHAND);
-                                        livingEntity.dropStack(item).setToDefaultPickupDelay();
+                                        livingEntity.dropStack(item).setPickupDelay(40);
                                         livingEntity.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
                                     }
                                 })
-                                .cooldownFor(e -> 40)
-                                .runFor(e -> e.getRandom().nextBetween(30, 60)),
+                                .cooldownFor(e -> 100),
 
                         new SetWalkTargetToEatSpot<>()
                                 .whenSuccessful(livingEntity -> BrainUtils.setMemory(livingEntity, ModMemoryModuleTypes.SHOULD_EAT, Boolean.TRUE))
-                                .startCondition(livingEntity -> Boolean.TRUE.equals(BrainUtils.getMemory(livingEntity, ModMemoryModuleTypes.HAS_FOOD))),
+                                .startCondition(livingEntity -> Boolean.TRUE.equals(BrainUtils.getMemory(livingEntity, ModMemoryModuleTypes.HAS_FOOD)))
+                                .cooldownFor(livingEntity -> 600),
 
                         //Idling if nothing else is happening
                         new OneRandomBehaviour<>(
@@ -243,7 +241,13 @@ public class OtterEntity extends AnimalEntity implements GeoEntity, SmartBrainOw
         return null;
     }
 
-
+    @Override
+    public void tick() {
+        if(!this.getWorld().isClient) {
+            System.out.println(BrainUtils.getMemory(this, ModMemoryModuleTypes.SHOULD_EAT));
+        }
+        super.tick();
+    }
 
     static class OtterMoveControl extends MoveControl{
         private final OtterEntity otter;
