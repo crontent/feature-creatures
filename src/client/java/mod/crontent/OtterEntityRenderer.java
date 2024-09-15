@@ -1,5 +1,6 @@
 package mod.crontent;
 
+import mod.crontent.entities.OtterEntity;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.util.math.MatrixStack;

@@ -1,5 +1,6 @@
 package mod.crontent;
 
+import mod.crontent.entities.OtterEntity;
 import mod.crontent.util.ModIdentifier;
 import software.bernie.geckolib.model.DefaultedEntityGeoModel;
 

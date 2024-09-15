@@ -1,8 +1,7 @@
 package mod.crontent.registries;
 
 import mod.crontent.FeatureCreatures;
-import mod.crontent.ModEntities;
-import mod.crontent.OtterEntity;
+import mod.crontent.entities.OtterEntity;
 import mod.crontent.util.ModIdentifier;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.entity.EntityType;

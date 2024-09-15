@@ -2,6 +2,9 @@ package mod.crontent;
 
 import mod.crontent.ai.memories.ModMemoryModuleTypes;
 import mod.crontent.ai.sensors.ModSensors;
+import mod.crontent.entities.OtterEntity;
+import mod.crontent.registries.ModEntities;
+import mod.crontent.registries.ModItems;
 import mod.crontent.registries.ModSpawnEggs;
 import net.fabricmc.api.ModInitializer;
 
@@ -21,6 +24,7 @@ public class FeatureCreatures implements ModInitializer {
 		ModMemoryModuleTypes.init();
 
 		ModSpawnEggs.init();
+		ModItems.initialize();
 
 		FabricDefaultAttributeRegistry.register(ModEntities.OTTER, OtterEntity.createOtterAttributes());
 	}

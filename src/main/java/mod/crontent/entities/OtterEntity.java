@@ -1,4 +1,4 @@
-package mod.crontent;
+package mod.crontent.entities;
 
 import com.mojang.datafixers.util.Pair;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;

@@ -1,5 +1,7 @@
-package mod.crontent;
+package mod.crontent.registries;
 
+import mod.crontent.FeatureCreatures;
+import mod.crontent.entities.OtterEntity;
 import mod.crontent.util.EntityRegistryManager;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;
